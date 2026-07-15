@@ -10,6 +10,13 @@ prototype web de référence : [glyph-slot-preview.jsx](glyph-slot-preview.jsx).
 ## Build
 
 - Android Studio (ou `./gradlew assembleDebug`), JDK 17, minSdk 34.
+- Sans Android Studio : installer les
+  [commandline-tools](https://developer.android.com/studio#command-line-tools-only)
+  (`sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"`,
+  puis `sdkmanager --licenses`) et indiquer le SDK via un `local.properties`
+  à la racine du projet avec `sdk.dir=C:\\chemin\\vers\\le\\sdk`
+  (ou la variable d'environnement `ANDROID_HOME`). `local.properties` est
+  propre à la machine — jamais versionné (.gitignore).
 - `GlyphMatrixSDK.aar` est **téléchargé automatiquement au premier build**
   (tâche `downloadGlyphSdk`, hook sur `preBuild`) dans `app/libs/` — non versionné.
 
@@ -48,3 +55,7 @@ Le temps est injecté dans `SlotEngine` (secondes monotones) : la machine à
 | Appui court | Système : cycle entre les toys |
 | Appui long (« change ») | Lancer le spin (ignoré si spin en cours) |
 | `onUnbind` | Stop boucle + extinction matrice |
+
+## Licence
+
+[MIT](LICENSE)
