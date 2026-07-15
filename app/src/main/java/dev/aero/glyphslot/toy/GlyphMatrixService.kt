@@ -28,8 +28,8 @@ abstract class GlyphMatrixService(private val tag: String) : Service() {
                 when (msg.data?.getString(GlyphToy.MSG_GLYPH_TOY_DATA)) {
                     GlyphToy.EVENT_CHANGE -> onTouchPointLongPress()
                     GlyphToy.EVENT_AOD -> onAodUpdate()
-                    "action_down" -> onTouchPointPressed()
-                    "action_up" -> onTouchPointReleased()
+                    GlyphToy.EVENT_ACTION_DOWN -> onTouchPointPressed()
+                    GlyphToy.EVENT_ACTION_UP -> onTouchPointReleased()
                 }
             }
         }

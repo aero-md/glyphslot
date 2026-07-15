@@ -2,12 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Requise pour accéder à la Glyph Matrix -->
+    <uses-permission android:name="com.nothing.ketchum.permission.ENABLE" />
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <!-- Clé API Nothing — « test » fonctionne avec le mode debug Glyph activé -->
+        <meta-data
+            android:name="NothingKey"
+            android:value="test" />
 
         <!-- Préview de dev : pas d'icône launcher en release (le toy vit dans
              Glyph Interface) — le manifest debug ajoute la catégorie LAUNCHER -->

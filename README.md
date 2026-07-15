@@ -24,8 +24,11 @@ prototype web de référence : [glyph-slot-preview.jsx](glyph-slot-preview.jsx).
 
 1. Installer sur un Phone (3) : `./gradlew installDebug`.
 2. Activer le toy : **Settings → Glyph Interface → Glyph Toys → Glyph Slot**.
-3. Mode debug de la matrice (48 h) :
+3. **Mode debug obligatoire** (la clé API `NothingKey=test` du manifest n'est
+   acceptée qu'en debug, 48 h) :
    `adb shell settings put global nt_glyph_interface_debug_enable 1`
+   Si la matrice reste noire ou que le toy crashe :
+   `adb logcat -b crash -d` pour la stack trace.
 4. Pour itérer sans retourner le téléphone : la préview Compose 25×25 utilise
    exactement le même moteur et le même renderer que le toy (boutons Tirage /
    Forcer ×3 / Forcer 777). L'icône launcher n'existe qu'en **debug** ; en

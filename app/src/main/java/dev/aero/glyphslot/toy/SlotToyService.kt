@@ -1,16 +1,12 @@
 package dev.aero.glyphslot.toy
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import com.nothing.ketchum.GlyphMatrixFrame
 import com.nothing.ketchum.GlyphMatrixManager
-import com.nothing.ketchum.GlyphMatrixObject
 import dev.aero.glyphslot.engine.Reels
 import dev.aero.glyphslot.engine.SlotEngine
 import dev.aero.glyphslot.render.MatrixRenderer
@@ -25,10 +21,6 @@ class SlotToyService : GlyphMatrixService("GlyphSlot") {
     private val renderer = MatrixRenderer()
     private val frameHandler = Handler(Looper.getMainLooper())
     private var running = false
-
-    private val pixels = IntArray(Reels.SIZE * Reels.SIZE)
-    private val bitmap: Bitmap =
-        Bitmap.createBitmap(Reels.SIZE, Reels.SIZE, Bitmap.Config.ARGB_8888)
 
     private val vibrator: Vibrator by lazy {
         (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
@@ -95,21 +87,8 @@ class SlotToyService : GlyphMatrixService("GlyphSlot") {
     }
 
     private fun push(brightness: IntArray) {
-        val gm = matrix ?: return
-        for (i in pixels.indices) {
-            val v = brightness[i]
-            pixels[i] = Color.rgb(v, v, v)
-        }
-        bitmap.setPixels(pixels, 0, Reels.SIZE, 0, 0, Reels.SIZE, Reels.SIZE)
-        val obj = GlyphMatrixObject.Builder()
-            .setImageSource(bitmap)
-            .setPosition(0, 0)
-            .setBrightness(255)
-            .build()
-        val frame = GlyphMatrixFrame.Builder()
-            .addTop(obj)
-            .build(applicationContext)
-        gm.setMatrixFrame(frame.render())
+        // setMatrixFrame accepte directement l'IntArray(625) de luminosités 0..255
+        matrix?.setMatrixFrame(brightness)
     }
 
     private companion object {
