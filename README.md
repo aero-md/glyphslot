@@ -19,9 +19,12 @@ prototype web de référence : [glyph-slot-preview.jsx](glyph-slot-preview.jsx).
 2. Activer le toy : **Settings → Glyph Interface → Glyph Toys → Glyph Slot**.
 3. Mode debug de la matrice (48 h) :
    `adb shell settings put global nt_glyph_interface_debug_enable 1`
-4. Pour itérer sans retourner le téléphone : lancer l'app — la préview Compose
-   25×25 utilise exactement le même moteur et le même renderer que le toy
-   (boutons Tirage / Forcer ×3 / Forcer 777).
+4. Pour itérer sans retourner le téléphone : la préview Compose 25×25 utilise
+   exactement le même moteur et le même renderer que le toy (boutons Tirage /
+   Forcer ×3 / Forcer 777). L'icône launcher n'existe qu'en **debug** ; en
+   release l'app n'a pas de raccourci (le toy vit dans Glyph Interface).
+   Lancement direct si besoin :
+   `adb shell am start -n dev.aero.glyphslot/.MainActivity`
 
 ## Architecture
 
