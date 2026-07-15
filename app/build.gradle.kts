@@ -48,7 +48,7 @@ val downloadGlyphSdk = tasks.register("downloadGlyphSdk") {
     doLast {
         glyphSdkAar.parentFile.mkdirs()
         val url = URI(
-            "https://github.com/Nothing-Developer-Programme/GlyphMatrix-Developer-Kit/raw/main/GlyphMatrixSDK.aar"
+            "https://github.com/Nothing-Developer-Programme/GlyphMatrix-Developer-Kit/raw/main/glyph-matrix-sdk-2.0.aar"
         ).toURL()
         url.openStream().use { input ->
             glyphSdkAar.outputStream().use { output -> input.copyTo(output) }
