@@ -21,7 +21,9 @@
     .replace(/import\s*\{([^}]*)\}\s*from\s*"react";?/, "const {$1} = React;")
     .replace(/export\s+default\s+function\s+GlyphSlot/, "function GlyphSlot");
   code += "\nReactDOM.createRoot(document.getElementById('root')).render(React.createElement(GlyphSlot));";
-  new Function(Babel.transform(code, { presets: ["react"] }).code)();
+  // runtime "classic" obligatoire : l'automatique (défaut Babel 8) injecte un
+  // import de react/jsx-runtime, impossible hors module ESM
+  new Function(Babel.transform(code, { presets: [["react", { runtime: "classic" }]] }).code)();
 })().catch((e) => {
   document.getElementById("root").innerHTML =
     '<p style="color:#E8E8E4;font-family:monospace;padding:24px">Erreur de chargement : ' + e + "</p>";
