@@ -15,6 +15,13 @@ le navigateur : mêmes constantes, même cinématique que le toy.
 Specs détaillées : [SPECS.md](SPECS.md) · annexe : [SPECS-ANNEXE.md](SPECS-ANNEXE.md) ·
 plan : [PLAN.md](PLAN.md).
 
+| Tirage perdant | Victoire ×3 | Jackpot 777 |
+|:---:|:---:|:---:|
+| ![Spin perdant](preview/glyphslot-lose.svg) | ![Victoire 3 cerises](preview/glyphslot-win.svg) | ![Jackpot 777](preview/glyphslot-777.svg) |
+
+*Animations SVG générées depuis la cinématique réelle du moteur
+([`preview/`](preview/)) — mêmes constantes, mêmes easings que le toy.*
+
 ## Build
 
 - Android Studio (ou `./gradlew assembleDebug`), JDK 17, minSdk 34.
