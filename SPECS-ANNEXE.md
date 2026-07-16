@@ -60,3 +60,16 @@ les coins arrondis (r=1,5) ne sont gardés que sur les calques atténué/plein.
   `adb start-server`) pour créer le listener avant tout client.
 - Mode debug Glyph (clé `NothingKey=test`, 48 h) :
   `adb shell settings put global nt_glyph_interface_debug_enable 1`.
+
+## Clé API Nothing — restriction levée sur Android 16
+
+- Le README du [Glyph-Developer-Kit](https://github.com/Nothing-Developer-Programme/Glyph-Developer-Kit)
+  indique : « The API key restriction has been removed starting from Android B
+  (Android 16). You no longer need to apply for an API key from Nothing if your
+  application is targeting this version or later », en recommandant de garder
+  le meta-data `NothingKey` pour la compatibilité.
+- **Vérifié le 16/07/2026 sur Phone (3) / Nothing OS Android 16** : avec
+  `targetSdk = 36` et `nt_glyph_interface_debug_enable = 0`, le toy fonctionne
+  avec `NothingKey=test` — la levée s'applique aussi au GlyphMatrix SDK.
+- Conséquence : `targetSdk = 36` requis (d'où AGP 8.9.2 + Gradle 8.11.1) ;
+  le meta-data `NothingKey=test` est conservé dans le manifest.

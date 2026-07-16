@@ -24,8 +24,10 @@ prototype web de référence : [glyph-slot-preview.jsx](glyph-slot-preview.jsx).
 
 1. Installer sur un Phone (3) : `./gradlew installDebug`.
 2. Activer le toy : **Settings → Glyph Interface → Glyph Toys → Glyph Slot**.
-3. **Mode debug obligatoire** (la clé API `NothingKey=test` du manifest n'est
-   acceptée qu'en debug, 48 h) :
+3. **Clé API : plus nécessaire sur Android 16.** La restriction est levée pour
+   les apps ciblant Android 16+ (`targetSdk = 36`) — vérifié sur Phone (3) /
+   Nothing OS Android 16, le toy fonctionne sans clé ni mode debug. Sur un
+   OS plus ancien, le mode debug reste requis (clé `NothingKey=test`, 48 h) :
    `adb shell settings put global nt_glyph_interface_debug_enable 1`
    Si la matrice reste noire ou que le toy crashe :
    `adb logcat -b crash -d` pour la stack trace.

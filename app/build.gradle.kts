@@ -16,12 +16,14 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "dev.aero.glyphslot"
-    compileSdk = 35
+    // targetSdk 36 (Android 16) : la restriction de clé API Glyph est levée à
+    // partir d'Android 16 pour les apps qui le ciblent (cf. Glyph-Developer-Kit)
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.aero.glyphslot"
         minSdk = 34
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }
@@ -60,6 +62,15 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    // Nom de l'APK : GlyphSlot-<version>.apk plutôt que app-release.apk
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                "GlyphSlot-${variant.versionName}.apk"
+        }
     }
 }
 
