@@ -33,14 +33,14 @@ class SlotEngineTest {
         assertEquals(SlotEngine.ResultType.JACKPOT, snap.resultType)
         // symboles finaux alignés sur la payline
         for (i in 0 until 3) {
-            assertEquals(Reels.targetOffset(0), snap.offsets[i], 1e-9)
+            assertEquals(Reels.targetOffset(i, 0), snap.offsets[i], 1e-9)
         }
 
         // fin du jackpot (~7,5 s) → IDLE, symboles finaux affichés
         val after = e.update(4.9 + SlotEngine.SETTLE + SlotEngine.DUR_JACKPOT + 0.1)
         assertEquals(SlotEngine.State.IDLE, after.state)
         for (i in 0 until 3) {
-            assertEquals(Reels.targetOffset(0), after.offsets[i], 1e-9)
+            assertEquals(Reels.targetOffset(i, 0), after.offsets[i], 1e-9)
         }
     }
 
@@ -75,8 +75,9 @@ class SlotEngineTest {
         e.update(2.7)
         assertEquals(listOf<SlotEngine.Event>(SlotEngine.Event.ReelStopped(0)), e.drainEvents())
 
-        // saut de temps : les deux arrêts restants arrivent dans le même update
-        e.update(5.0)
+        // saut de temps après STOPS[2] + SETTLE : les deux arrêts restants et la
+        // fin du spin arrivent dans le même update
+        e.update(5.2)
         val events = e.drainEvents()
         assertEquals(
             listOf(SlotEngine.Event.ReelStopped(1), SlotEngine.Event.ReelStopped(2)),
@@ -108,9 +109,14 @@ class SlotEngineTest {
         repeat(200) { seed ->
             val e = SlotEngine(Random(seed))
             val offs = e.update(0.0).offsets
+            // offset ≡ -9·slot (mod 45) → slot = -offset/9 (mod 5), symbole = ORDER[i][slot]
+            val syms = IntArray(3) { i ->
+                val slot = Reels.mod((-offs[i] / Reels.SYM_H).toInt(), Reels.SYMBOL_COUNT)
+                Reels.ORDER[i][slot]
+            }
             assertFalse(
-                "seed=$seed",
-                offs[0] == offs[1] && offs[1] == offs[2],
+                "seed=$seed syms=${syms.toList()}",
+                syms[0] == syms[1] && syms[1] == syms[2],
             )
         }
     }

@@ -87,11 +87,16 @@ class SlotToyService : GlyphMatrixService("GlyphSlot") {
     }
 
     private fun push(brightness: IntArray) {
-        // setMatrixFrame accepte directement l'IntArray(625) de luminosités 0..255
-        matrix?.setMatrixFrame(brightness)
+        // setMatrixFrame attend des luminosités 0..4095 : le renderer sort du 0..255,
+        // on applique le même ×16 que GlyphMatrixUtils (BRIGHTNESS_MULTIPLIER)
+        for (i in frameBuf.indices) frameBuf[i] = brightness[i] * BRIGHTNESS_MULTIPLIER
+        matrix?.setMatrixFrame(frameBuf)
     }
+
+    private val frameBuf = IntArray(Reels.SIZE * Reels.SIZE)
 
     private companion object {
         const val FRAME_MS = 33L // ~30 fps
+        const val BRIGHTNESS_MULTIPLIER = 16
     }
 }

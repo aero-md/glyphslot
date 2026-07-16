@@ -61,7 +61,7 @@ class MatrixRenderer(private val random: Random = Random.Default) {
             val off = snap.offsets[i].roundToInt()
             for (wy in 1 until Reels.SIZE - 1) {
                 val stripRow = Reels.mod(wy - Reels.PAY_TOP - off, Reels.STRIP_LEN)
-                val sym = stripRow / Reels.SYM_H
+                val sym = Reels.ORDER[i][stripRow / Reels.SYM_H]
                 val r = stripRow % Reels.SYM_H
                 if (r >= 7) continue
                 val inPay = wy in Reels.PAY_TOP..Reels.PAY_BOT
@@ -75,12 +75,6 @@ class MatrixRenderer(private val random: Random = Random.Default) {
                 }
             }
         }
-
-        // repères payline sur les bords
-        marker(Reels.PAY_TOP, 0)
-        marker(Reels.PAY_BOT, 0)
-        marker(Reels.PAY_TOP, Reels.SIZE - 1)
-        marker(Reels.PAY_BOT, Reels.SIZE - 1)
 
         // effets de résultat
         when (result) {
@@ -104,11 +98,6 @@ class MatrixRenderer(private val random: Random = Random.Default) {
             out[i] = if (Disc.inside[i]) (min(src[i], 1f) * 255).roundToInt() else 0
         }
         return out
-    }
-
-    private fun marker(y: Int, x: Int) {
-        val i = y * Reels.SIZE + x
-        if (grid[i] < 0.3f) grid[i] = 0.3f
     }
 
     private fun shift(dx: Int, dy: Int) {

@@ -53,8 +53,26 @@ object Reels {
     fun mod(a: Double, n: Double): Double = ((a % n) + n) % n
     fun mod(a: Int, n: Int): Int = ((a % n) + n) % n
 
-    /** Offset (mod 45) qui aligne le symbole k sur la payline : offset ≡ -9k (mod 45). */
-    fun targetOffset(k: Int): Double = mod(-(SYM_H * k).toDouble(), STRIP_LEN.toDouble())
+    /**
+     * Ordre des symboles sur la bande de chaque rouleau : le rouleau i avance de
+     * i+1 (mod 5). 5 étant premier, chaque bande contient bien les 5 symboles, et
+     * les voisins (haut/bas) d'un symbole aligné sur la payline diffèrent d'un
+     * rouleau à l'autre — pas d'alignement hors zone centrale.
+     */
+    val ORDER: Array<IntArray> = Array(3) { i ->
+        IntArray(SYMBOL_COUNT) { j -> (j * (i + 1)) % SYMBOL_COUNT }
+    }
+
+    /** Position (slot) du symbole k sur la bande du rouleau i — inverse de ORDER. */
+    private val SLOT: Array<IntArray> = Array(3) { i ->
+        IntArray(SYMBOL_COUNT).also { inv ->
+            ORDER[i].forEachIndexed { slot, k -> inv[k] = slot }
+        }
+    }
+
+    /** Offset (mod 45) qui aligne le symbole k du rouleau reel sur la payline. */
+    fun targetOffset(reel: Int, k: Int): Double =
+        mod(-(SYM_H * SLOT[reel][k]).toDouble(), STRIP_LEN.toDouble())
 
     /** Hermite cubique avec tangentes contrôlées aux deux extrémités. */
     fun hermite(u: Double, p0: Double, p1: Double, m0: Double, m1: Double = 0.0): Double {
@@ -79,10 +97,10 @@ object Reels {
      * Pré-calcule la trajectoire pour que la décélération atterrisse pile sur le
      * symbole k à tStop. Distance de décélération d ∈ [30, 75).
      */
-    fun makePlan(off0: Double, k: Int, tStop: Double): Plan {
+    fun makePlan(reel: Int, off0: Double, k: Int, tStop: Double): Plan {
         val t1 = tStop - DECEL
         val o1 = off0 + V * t1
-        val d = 30 + mod(targetOffset(k) - (o1 + 30), STRIP_LEN.toDouble())
+        val d = 30 + mod(targetOffset(reel, k) - (o1 + 30), STRIP_LEN.toDouble())
         return Plan(off0 = off0, t1 = t1, tStop = tStop, o1 = o1, oF = o1 + d)
     }
 

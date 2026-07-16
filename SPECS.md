@@ -17,10 +17,12 @@
 
 ## Bande & offsets
 
-- Ordre de la bande : `[SEVEN, CHERRY, BAR, DIAMOND, BELL]`.
+- Ordre de la bande propre à chaque rouleau : `ORDER[i][slot] = slot·(i+1) mod 5`
+  (rouleau 0 : `[SEVEN, CHERRY, BAR, DIAMOND, BELL]`) — détails et propriété
+  d'alignement dans [SPECS-ANNEXE.md](SPECS-ANNEXE.md).
 - Défilement haut → bas : la ligne affichée en y de la fenêtre est
   `stripRow = mod(y - PAY_TOP - round(offset), 45)`.
-- Symbole k aligné sur la payline ⇔ `offset ≡ -9k (mod 45)`.
+- Symbole k aligné sur la payline ⇔ `offset ≡ -9·SLOT[reel][k] (mod 45)`.
 - Lignes hors payline : luminosité ×0,2 (symboles voisins visibles).
 
 ## Plan de spin (pré-calculé à l'appui long)

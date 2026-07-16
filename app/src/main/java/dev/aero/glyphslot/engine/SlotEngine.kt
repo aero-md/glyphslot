@@ -72,7 +72,7 @@ class SlotEngine(private val random: Random = Random.Default) {
     init {
         // état initial : tirage aléatoire, jamais 3 identiques
         offsets = DoubleArray(3).also { arr ->
-            drawNoTriple().forEachIndexed { i, k -> arr[i] = Reels.targetOffset(k) }
+            drawNoTriple().forEachIndexed { i, k -> arr[i] = Reels.targetOffset(i, k) }
         }
     }
 
@@ -111,7 +111,7 @@ class SlotEngine(private val random: Random = Random.Default) {
             }
             else -> drawTargets()
         }
-        plans = List(3) { i -> Reels.makePlan(offsets[i], targets[i], Reels.STOPS[i]) }
+        plans = List(3) { i -> Reels.makePlan(i, offsets[i], targets[i], Reels.STOPS[i]) }
         t0 = now
         announcedStops = 0
         resultType = null
@@ -142,7 +142,7 @@ class SlotEngine(private val random: Random = Random.Default) {
                             if (targets[0] == 0) ResultType.JACKPOT else ResultType.WIN
                         else -> ResultType.LOSE
                     }
-                    offsets = DoubleArray(3) { Reels.targetOffset(targets[it]) }
+                    offsets = DoubleArray(3) { Reels.targetOffset(it, targets[it]) }
                     events += Event.SpinFinished(resultType!!)
                 }
             }
