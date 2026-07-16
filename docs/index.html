@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GlyphSlot — préview interactive</title>
+<style>body { margin: 0; background: #0A0A0B; }</style>
+</head>
+<body>
+<div id="root"></div>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+/* Charge glyph-slot-preview.jsx depuis la branche main (source unique de
+   vérité), adapte les import/export ESM au React UMD, transpile avec Babel. */
+(async () => {
+  const SRC = "https://raw.githubusercontent.com/aero-md/glyphslot/main/glyph-slot-preview.jsx";
+  let code = await (await fetch(SRC)).text();
+  code = code
+    .replace(/import\s*\{([^}]*)\}\s*from\s*"react";?/, "const {$1} = React;")
+    .replace(/export\s+default\s+function\s+GlyphSlot/, "function GlyphSlot");
+  code += "\nReactDOM.createRoot(document.getElementById('root')).render(React.createElement(GlyphSlot));";
+  new Function(Babel.transform(code, { presets: ["react"] }).code)();
+})().catch((e) => {
+  document.getElementById("root").innerHTML =
+    '<p style="color:#E8E8E4;font-family:monospace;padding:24px">Erreur de chargement : ' + e + "</p>";
+});
+</script>
+</body>
+</html>

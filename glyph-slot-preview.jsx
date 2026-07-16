@@ -83,7 +83,17 @@ const BANNER = Array.from({ length: 7 }, (_, r) =>
 const BANNER_W = BANNER[0].length; // 41 colonnes
 
 const mod = (a, n) => ((a % n) + n) % n;
-const targetOffset = (k) => mod(-SYM_H * k, STRIP_LEN);
+/* Ordre des symboles par rouleau : le rouleau i avance de i+1 (mod 5) —
+   les voisins d'un symbole aligné diffèrent donc d'un rouleau à l'autre */
+const ORDER = [0, 1, 2].map((i) =>
+  Array.from({ length: 5 }, (_, j) => (j * (i + 1)) % 5)
+);
+const SLOT = ORDER.map((ord) => {
+  const inv = [];
+  ord.forEach((k, slot) => (inv[k] = slot));
+  return inv;
+});
+const targetOffset = (reel, k) => mod(-SYM_H * SLOT[reel][k], STRIP_LEN);
 
 /* Hermite : tangentes contrôlées aux deux extrémités */
 function herm(u, p0, p1, m0, m1 = 0) {
@@ -96,10 +106,10 @@ function herm(u, p0, p1, m0, m1 = 0) {
   );
 }
 
-function makePlan(off0, k, tStop) {
+function makePlan(reel, off0, k, tStop) {
   const t1 = tStop - DECEL;
   const o1 = off0 + V * t1;
-  const tm = targetOffset(k);
+  const tm = targetOffset(reel, k);
   const d = 30 + mod(tm - (o1 + 30), STRIP_LEN); // distance de décel ∈ [30,75)
   return { off0, t1, tStop, o1, oF: o1 + d };
 }
@@ -149,7 +159,7 @@ export default function GlyphSlot() {
     do {
       s = [0, 0, 0].map(() => Math.floor(Math.random() * 5));
     } while (s[0] === s[1] && s[1] === s[2]);
-    A.current.offsets = s.map(targetOffset);
+    A.current.offsets = s.map((k, i) => targetOffset(i, k));
   }
 
   const spin = (force) => {
@@ -173,7 +183,7 @@ export default function GlyphSlot() {
       }
     }
     a.targets = t;
-    a.plans = a.offsets.map((o, i) => makePlan(o, t[i], STOPS[i]));
+    a.plans = a.offsets.map((o, i) => makePlan(i, o, t[i], STOPS[i]));
     a.t0 = performance.now() / 1000;
     a.mode = "spin";
     a.announced = -1;
@@ -206,7 +216,7 @@ export default function GlyphSlot() {
           a.resultStart = now;
           const [x, y, z] = a.targets;
           a.resultType = x === y && y === z ? (x === 0 ? "jackpot" : "win") : "lose";
-          a.offsets = a.targets.map(targetOffset);
+          a.offsets = a.targets.map((k, i) => targetOffset(i, k));
           if (a.resultType === "jackpot") {
             a.fx = {
               bursts: Array.from({ length: 7 }, (_, i) => ({
@@ -258,7 +268,7 @@ export default function GlyphSlot() {
         const off = Math.round(offs[i]);
         for (let wy = 1; wy < SIZE - 1; wy++) {
           const stripRow = mod(wy - PAY_TOP - off, STRIP_LEN);
-          const sym = STRIP[Math.floor(stripRow / SYM_H)];
+          const sym = STRIP[ORDER[i][Math.floor(stripRow / SYM_H)]];
           const r = stripRow % SYM_H;
           if (r >= 7) continue;
           const inPay = wy >= PAY_TOP && wy <= PAY_BOT;
@@ -271,12 +281,6 @@ export default function GlyphSlot() {
           }
         }
       }
-
-      /* repères payline */
-      grid[PAY_TOP * SIZE + 0] = Math.max(grid[PAY_TOP * SIZE + 0], 0.3);
-      grid[PAY_BOT * SIZE + 0] = Math.max(grid[PAY_BOT * SIZE + 0], 0.3);
-      grid[PAY_TOP * SIZE + 24] = Math.max(grid[PAY_TOP * SIZE + 24], 0.3);
-      grid[PAY_BOT * SIZE + 24] = Math.max(grid[PAY_BOT * SIZE + 24], 0.3);
 
       /* --- effets --- */
       if (a.mode === "result") {
