@@ -76,6 +76,23 @@ Le temps est injecté dans `SlotEngine` (secondes monotones) : la machine à
 | Appui long (« change ») | Lancer le spin (ignoré si spin en cours) |
 | `onUnbind` | Stop boucle + extinction matrice |
 
+## Release
+
+APK signé sur la [page des releases](https://github.com/aero-md/glyphslot/releases/latest).
+
+Publier une nouvelle version : bump `versionName`/`versionCode` dans
+`app/build.gradle.kts`, puis pousser un **tag annoté** `vX.Y.Z` — le message du
+tag devient la release note :
+
+```
+git tag -a v1.0.0 -m "Notes de release…"
+git push origin v1.0.0
+```
+
+Le workflow [release.yml](.github/workflows/release.yml) build, signe
+(secrets `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`)
+et attache `GlyphSlot-X.Y.Z.apk` à la release.
+
 ## Licence
 
 [MIT](LICENSE)
