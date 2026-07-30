@@ -10,10 +10,11 @@ cascade et effets de victoire (pulse ×3, chorégraphie jackpot 777).
 
 **[▶ Préview interactive](https://aero-md.github.io/glyphslot/)** — le
 prototype web ([glyph-slot-preview.jsx](glyph-slot-preview.jsx)) jouable dans
-le navigateur : mêmes constantes, même cinématique que le toy.
+le navigateur : mêmes constantes, même cinématique que le toy, rendu à
+l'échelle réelle sur une photo du dos du Phone (3).
 
 Specs détaillées : [SPECS.md](SPECS.md) · annexe : [SPECS-ANNEXE.md](SPECS-ANNEXE.md) ·
-plan : [PLAN.md](PLAN.md).
+préview : [SPECS-PREVIEW.md](SPECS-PREVIEW.md) · plan : [PLAN.md](PLAN.md).
 
 | Tirage perdant | Victoire ×3 | Jackpot 777 |
 |:---:|:---:|:---:|

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 
 /* ---------- Glyph Matrix : constantes ---------- */
 const SIZE = 25;          // matrice 25×25
-const CELL = 12;          // px par LED (rendu)
 const CTR = 12;           // centre
 const RADIUS = 12.5;      // masque circulaire (~489 LEDs)
 const COLS = [1, 9, 17];  // x de départ des 3 rouleaux (7 px chacun)
@@ -15,6 +14,32 @@ const V = 34;             // vitesse plein régime (lignes/s)
 const T_PULL = 0.45;      // recul lent (ressort qu'on arme)
 const T_LAUNCH = 0.75;    // fin de la détente → vitesse V atteinte
 const PULL = 5;           // amplitude du recul (lignes, sens inverse)
+
+/* ---------- Fond : gris très sombre bleuté + trame de points, façon Nothing ----------
+   SVG plutôt que radial-gradient : le point reste un carré de 2 × 2 px net,
+   sans antialiasing, quel que soit le zoom. */
+const BG = "#0C0D10";
+const DOT_GAP = 132; // écart entre points, en px
+const DOTS =
+  'url("data:image/svg+xml,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${DOT_GAP}" height="${DOT_GAP}">` +
+      `<rect width="2" height="2" fill="#9AA3C8" fill-opacity=".22"/></svg>`
+  ) +
+  '")';
+
+/* ---------- Rendu LED : une cellule = un nombre entier de pixels écran ----------
+   Si le canvas est redimensionné par le navigateur avec un ratio fractionnaire,
+   une colonne sur n gagne un pixel et la trame devient irrégulière. On calcule
+   donc la grille à partir du devicePixelRatio et on cale la taille du téléphone
+   dessus, plutôt que d'étirer un canvas de taille fixe.
+   Exact pour dpr 1 / 1.5 / 2 / 3 ; approché (mais bien meilleur qu'un downscale
+   libre) pour les dpr en quarts. */
+const DPR = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+const CELL = Math.max(3, Math.round(6 * DPR)); // px de canvas par LED
+const LED = Math.max(2, Math.round((CELL * 2) / 3)); // côté du carré allumé
+const CANVAS = SIZE * CELL;   // résolution du canvas
+const MX_PX = SIZE * 6;       // diamètre rendu de la matrice, en px CSS (150)
 
 /* Sprites 7×7 — '.'=éteint, '1'=faible, '2'=plein */
 const SPR = {
@@ -127,6 +152,21 @@ function offsetAt(p, t) {
   return p.oF;
 }
 
+/* ---------- Dos du Phone (3) : géométrie de la photo ----------
+   docs/phone3-back.webp = photo rognée au corps du téléphone puis aux 62 %
+   supérieurs (704 × 913 px) — les 40 % du bas ne sont pas rendus.
+   Positions relevées sur la photo, en % de ce cadre (d = % de la largeur). */
+const PH_W = 704, PH_H = 913;
+const MX = { x: 79.53, y: 15.36, d: 26.04 }; // disque de la Glyph Matrix
+const BT = { x: 84.53, y: 74.82, d: 15.86 }; // bouton Glyph
+/* largeur du téléphone déduite du diamètre voulu pour la matrice, pour que
+   MX.d % de cette largeur retombe exactement sur MX_PX (576 px) */
+const PHONE_W = `min(${Math.round(MX_PX / (MX.d / 100))}px, 100%)`;
+const YEL = "255,229,0"; // jaune Nothing, en RGB pour moduler l'alpha
+/* surchargeable (window.GLYPH_PHONE_SRC) pour les pages qui inlinent la photo */
+const PHONE_SRC =
+  (typeof window !== "undefined" && window.GLYPH_PHONE_SRC) || "phone3-back.webp";
+
 /* masque circulaire pré-calculé */
 const MASK = [];
 for (let y = 0; y < SIZE; y++)
@@ -137,9 +177,13 @@ export default function GlyphSlot() {
   const canvasRef = useRef(null);
   const barRef = useRef(null);
   const pressT = useRef(null);
+  const hintT = useRef(null);
+  const down = useRef(false);   // un appui est en cours
+  const fired = useRef(false);  // …et il a duré assez pour lancer
   const [status, setStatus] = useState("Appui long sur le bouton Glyph pour lancer");
   const [busy, setBusy] = useState(false);
   const [pressed, setPressed] = useState(false);
+  const [hint, setHint] = useState(false);
 
   const A = useRef({
     mode: "idle",           // idle | spin | result
@@ -374,47 +418,66 @@ export default function GlyphSlot() {
       }
 
       /* --- rendu LED (pixels carrés) --- */
-      const S = 8; // côté du carré LED (gap de 4 px entre LEDs)
       ctx.clearRect(0, 0, cv.width, cv.height);
       let amp = 0;
       if (a.mode === "result" && a.resultType === "jackpot") {
         const te = now - a.resultStart;
-        if (te < 0.6) amp = 3;
-        else if (a.fx && a.fx.bursts.some((b) => te - b.t0 > 0 && te - b.t0 < 0.22)) amp = 2;
+        /* en fractions de cellule, pour rester constant quelle que soit la grille */
+        if (te < 0.6) amp = CELL / 4;
+        else if (a.fx && a.fx.bursts.some((b) => te - b.t0 > 0 && te - b.t0 < 0.22)) amp = CELL / 6;
       }
       ctx.save();
       if (amp) ctx.translate((Math.random() * 2 - 1) * amp, (Math.random() * 2 - 1) * amp);
+      const off = (CELL - LED) / 2;
       for (const [x, y] of MASK) {
         const b = grid[y * SIZE + x];
-        const px = x * CELL + (CELL - S) / 2;
-        const py = y * CELL + (CELL - S) / 2;
+        const px = x * CELL + off;
+        const py = y * CELL + off;
         ctx.shadowBlur = 0;
         ctx.fillStyle = "rgba(255,255,255,0.05)";
-        ctx.fillRect(px, py, S, S);
+        ctx.fillRect(px, py, LED, LED);
         if (b > 0.02) {
           ctx.fillStyle = `rgba(248,248,244,${Math.min(b, 1)})`;
           if (b > 0.5) {
             ctx.shadowColor = "rgba(255,255,255,0.85)";
-            ctx.shadowBlur = 8 * b;
+            ctx.shadowBlur = LED * b;
           }
-          ctx.fillRect(px, py, S, S);
+          ctx.fillRect(px, py, LED, LED);
         }
       }
       ctx.restore();
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(pressT.current);
+      clearTimeout(hintT.current);
+    };
   }, []);
 
-  /* --- appui long sur le bouton Glyph --- */
+  /* --- appui long sur le bouton Glyph ---
+     Relâché trop tôt : rien ne se lance, on le dit au lieu de laisser
+     croire que le bouton ne répond pas. */
   const pressStart = () => {
+    down.current = true;
+    fired.current = false;
+    clearTimeout(hintT.current);
+    setHint(false);
     setPressed(true);
-    pressT.current = setTimeout(() => spin(null), 450);
+    pressT.current = setTimeout(() => {
+      fired.current = true;
+      spin(null);
+    }, 450);
   };
   const pressEnd = () => {
+    if (!down.current) return;
+    down.current = false;
     setPressed(false);
     clearTimeout(pressT.current);
+    if (fired.current) return;
+    setHint(true);
+    hintT.current = setTimeout(() => setHint(false), 1900);
   };
 
   const btn = {
@@ -434,7 +497,12 @@ export default function GlyphSlot() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#0A0A0B",
+        /* sans ça, minHeight 100vh s'additionne au padding et la page
+           déborde de 68 px — un scroll pour rien */
+        boxSizing: "border-box",
+        backgroundColor: BG,
+        backgroundImage: DOTS,
+        backgroundAttachment: "fixed", // la trame ne défile pas avec le contenu
         color: "#E8E8E4",
         fontFamily: "'Space Mono', ui-monospace, SFMono-Regular, monospace",
         display: "flex",
@@ -447,6 +515,31 @@ export default function GlyphSlot() {
         @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
         button:disabled { opacity:.35; cursor:default; }
         button:not(:disabled):hover { border-color:#5A5A61; color:#E8E8E4; }
+        /* glow jaune Nothing : le bouton Glyph doit sauter aux yeux sur la photo */
+        @keyframes glyphPulse {
+          0%,100% { box-shadow: 0 0 0 1px rgba(${YEL},.55),
+                                0 0 12px 2px rgba(${YEL},.30),
+                                0 0 0 0 rgba(${YEL},.34); }
+          50%     { box-shadow: 0 0 0 2px rgba(${YEL},.95),
+                                0 0 26px 6px rgba(${YEL},.60),
+                                0 0 0 14px rgba(${YEL},0); }
+        }
+        .glyph-btn { animation: glyphPulse 2.2s ease-in-out infinite; background: transparent; }
+        .glyph-btn:disabled { animation:none; box-shadow:none; }
+        .glyph-btn:not(:disabled):hover {
+          animation-duration: 1.1s;
+          background: radial-gradient(circle, rgba(${YEL},.22), rgba(${YEL},.05) 70%);
+        }
+        .glyph-btn.is-hint { animation-duration: .7s; }
+        .glyph-btn.is-pressed {
+          animation:none;
+          background: radial-gradient(circle, rgba(${YEL},.34), rgba(0,0,0,.35) 75%);
+          box-shadow: 0 0 0 2px rgba(${YEL},1), 0 0 34px 10px rgba(${YEL},.75),
+                      inset 0 2px 6px rgba(0,0,0,.6);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .glyph-btn { animation:none; box-shadow:0 0 0 2px rgba(${YEL},.8), 0 0 18px 4px rgba(${YEL},.45); }
+        }
       `}</style>
 
       {/* header */}
@@ -466,71 +559,112 @@ export default function GlyphSlot() {
         </div>
       </div>
 
-      {/* dos du téléphone */}
+      {/* dos du Phone (3) : photo réelle, matrice et bouton Glyph superposés */}
       <div
         style={{
           position: "relative",
-          width: 344,
-          borderRadius: 34,
-          background: "linear-gradient(160deg,#1B1B1E,#141416)",
-          border: "1px solid #29292E",
-          padding: "22px 22px 18px",
-          boxShadow: "0 24px 60px rgba(0,0,0,.55)",
+          width: PHONE_W,
+          aspectRatio: `${PH_W} / ${PH_H}`,
+          filter: "drop-shadow(0 26px 48px rgba(0,0,0,.65))",
         }}
       >
-        {/* LED rouge (enregistrement) */}
+        <img
+          src={PHONE_SRC}
+          alt="Dos d'un Nothing Phone (3)"
+          draggable="false"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            display: "block",
+            /* coupe basse : la photo s'efface en fondu au lieu d'être recouverte
+               par un aplat, sinon la trame de points disparaîtrait sur la bande */
+            WebkitMaskImage: "linear-gradient(to bottom, #000 86%, transparent 99%)",
+            maskImage: "linear-gradient(to bottom, #000 86%, transparent 99%)",
+          }}
+        />
+
+        {/* matrice, calée sur le disque de la photo */}
         <div
           style={{
             position: "absolute",
-            top: 18,
-            left: 26,
-            width: 7,
-            height: 7,
-            borderRadius: 99,
-            background: "#D71921",
-            boxShadow: "0 0 8px rgba(215,25,33,.7)",
-          }}
-        />
-        {/* matrice */}
-        <div
-          style={{
-            width: 300,
-            height: 300,
+            left: `${MX.x}%`,
+            top: `${MX.y}%`,
+            width: `${MX.d}%`,
+            aspectRatio: "1",
+            transform: "translate(-50%,-50%)",
             borderRadius: "50%",
-            background: "radial-gradient(circle at 40% 35%, #101013, #0B0B0D 70%)",
-            border: "1px solid #26262B",
-            boxShadow: "inset 0 4px 18px rgba(0,0,0,.8)",
-            display: "grid",
-            placeItems: "center",
+            overflow: "hidden",
+            background: "radial-gradient(circle at 40% 35%, #0E0E11, #08080A 72%)",
+            boxShadow: "inset 0 2px 10px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.8)",
           }}
         >
-          <canvas ref={canvasRef} width={300} height={300} style={{ width: 300, height: 300 }} />
-        </div>
-
-        {/* bouton Glyph */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
-          <span style={{ fontSize: 10, color: "#6E6E75", letterSpacing: "0.1em" }}>
-            APPUI LONG →
-          </span>
-          <button
-            aria-label="Bouton Glyph — appui long pour lancer"
-            disabled={busy}
-            onPointerDown={pressStart}
-            onPointerUp={pressEnd}
-            onPointerLeave={pressEnd}
+          <canvas
+            ref={canvasRef}
+            width={CANVAS}
+            height={CANVAS}
+            style={{ width: "100%", height: "100%", display: "block" }}
+          />
+          {/* reflet du verre */}
+          <div
             style={{
-              width: 34,
-              height: 34,
+              position: "absolute",
+              inset: 0,
               borderRadius: "50%",
-              border: "1px solid #3A3A40",
-              background: pressed ? "#2A2A2F" : "#1E1E22",
-              transform: pressed ? "scale(.88)" : "scale(1)",
-              transition: "transform .12s, background .12s",
-              cursor: busy ? "default" : "pointer",
-              boxShadow: "inset 0 2px 5px rgba(0,0,0,.6)",
+              pointerEvents: "none",
+              background: "linear-gradient(148deg, rgba(255,255,255,.075), rgba(255,255,255,0) 46%)",
             }}
           />
         </div>
+
+        {/* bouton Glyph, calé sur le bouton de la photo */}
+        <button
+          className={"glyph-btn" + (pressed ? " is-pressed" : "") + (hint ? " is-hint" : "")}
+          aria-label="Bouton Glyph — appui long pour lancer"
+          disabled={busy}
+          onPointerDown={pressStart}
+          onPointerUp={pressEnd}
+          onPointerLeave={pressEnd}
+          style={{
+            position: "absolute",
+            left: `${BT.x}%`,
+            top: `${BT.y}%`,
+            width: `${BT.d}%`,
+            aspectRatio: "1",
+            transform: `translate(-50%,-50%) scale(${pressed ? 0.93 : 1})`,
+            borderRadius: "50%",
+            border: "none",
+            padding: 0,
+            /* fond et glow viennent de .glyph-btn : pas de `background` inline,
+               il gagnerait sur les règles :hover / .is-pressed */
+            transition: "transform .12s",
+            cursor: busy ? "default" : "pointer",
+          }}
+        />
+
+        {/* rappel « appui long », à gauche du bouton, sur relâché trop tôt */}
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: `${BT.x - BT.d / 2 - 2}%`,
+            top: `${BT.y}%`,
+            transform: `translate(-100%,-50%) translateX(${hint ? 0 : 6}px)`,
+            whiteSpace: "nowrap",
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color: `rgb(${YEL})`,
+            textShadow: `0 0 12px rgba(${YEL},.5)`,
+            opacity: hint ? 1 : 0,
+            transition: "opacity .45s, transform .45s",
+            pointerEvents: "none",
+          }}
+        >
+          Appui long →
+        </span>
+
       </div>
 
       {/* statut */}
@@ -548,7 +682,7 @@ export default function GlyphSlot() {
       </div>
 
       {/* timeline 8 s */}
-      <div style={{ width: 320, marginTop: 16 }}>
+      <div style={{ width: PHONE_W, marginTop: 16 }}>
         <div
           style={{
             position: "relative",
@@ -607,7 +741,9 @@ export default function GlyphSlot() {
           lineHeight: 1.7,
         }}
       >
-        Appui long = event « change » reçu par le service GlyphToy.
+        Appui long sur le bouton Glyph = event « change » reçu par le service
+        GlyphToy. La matrice est rendue à sa place et à son échelle réelles sur
+        le dos du Phone (3).
         <br />
         Payline centrale (7 lignes), symboles voisins atténués. Ligne du haut
         vers le bas, arrêts en cascade, léger « settle » à l'arrêt.
