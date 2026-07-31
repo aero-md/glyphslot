@@ -87,6 +87,29 @@ les deux cas ; les timers sont nettoyés au démontage.
 Le `background` du bouton est porté par la classe CSS, jamais en style inline —
 un style inline gagnerait sur les règles `:hover` et `.is-pressed`.
 
+### Tactile
+
+Sans précautions, l'appui long mobile déclenche l'appui long *système* — sur
+Chrome Android, le menu contextuel de l'image du dos, que le bouton recouvre.
+Quatre verrous, tous nécessaires :
+
+| Verrou | Rôle |
+|---|---|
+| `pointer-events: none` sur l'`<img>` | la photo sort du hit-test : plus de menu « enregistrer l'image » |
+| `touch-action: none` sur le bouton | le navigateur ne prend pas l'appui pour un début de scroll et ne vole pas le geste |
+| `-webkit-touch-callout` + `user-select: none` | pas de callout iOS, pas de sélection de texte |
+| `preventDefault` sur `touchstart` et `contextmenu` | désamorce l'appui long système avant nos 450 ms |
+
+Le listener `touchstart` est attaché **nativement** (`{passive:false}`) via
+`btnRef` : React attache `onTouchStart` en passive, où `preventDefault` est sans
+effet. `pointerdown` est émis avant `touchstart`, la machine à états est donc
+intacte.
+
+`onPointerCancel` remet l'état à zéro **sans** afficher le rappel : le geste a
+été repris par le navigateur, l'utilisateur n'a rien fait de travers.
+
+Le déclenchement s'accompagne d'un `navigator.vibrate(12)` là où c'est supporté.
+
 ## Fond
 
 Gris très sombre légèrement bleuté + trame de points, façon DA Nothing.

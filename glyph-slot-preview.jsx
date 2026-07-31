@@ -176,6 +176,7 @@ for (let y = 0; y < SIZE; y++)
 export default function GlyphSlot() {
   const canvasRef = useRef(null);
   const barRef = useRef(null);
+  const btnRef = useRef(null);
   const pressT = useRef(null);
   const hintT = useRef(null);
   const down = useRef(false);   // un appui est en cours
@@ -467,6 +468,7 @@ export default function GlyphSlot() {
     setPressed(true);
     pressT.current = setTimeout(() => {
       fired.current = true;
+      if (navigator.vibrate) navigator.vibrate(12); // tick haptique, comme le toy
       spin(null);
     }, 450);
   };
@@ -479,6 +481,27 @@ export default function GlyphSlot() {
     setHint(true);
     hintT.current = setTimeout(() => setHint(false), 1900);
   };
+  /* le navigateur a repris le geste (scroll, appel entrant…) : on annule sans
+     rappel, l'utilisateur n'a rien fait de travers */
+  const pressCancel = () => {
+    down.current = false;
+    fired.current = false;
+    setPressed(false);
+    clearTimeout(pressT.current);
+  };
+
+  /* Filet tactile. Chrome Android déclenche son appui long système avant que le
+     nôtre n'arrive à 450 ms ; preventDefault sur touchstart le désamorce
+     (pointerdown a déjà été émis à ce stade, la logique ci-dessus est intacte).
+     Listener natif obligatoire : React attache onTouchStart en passive, où
+     preventDefault est sans effet. */
+  useEffect(() => {
+    const el = btnRef.current;
+    if (!el) return;
+    const swallow = (e) => e.preventDefault();
+    el.addEventListener("touchstart", swallow, { passive: false });
+    return () => el.removeEventListener("touchstart", swallow);
+  }, []);
 
   const btn = {
     background: "transparent",
@@ -524,7 +547,15 @@ export default function GlyphSlot() {
                                 0 0 26px 6px rgba(${YEL},.60),
                                 0 0 0 14px rgba(${YEL},0); }
         }
-        .glyph-btn { animation: glyphPulse 2.2s ease-in-out infinite; background: transparent; }
+        .glyph-btn {
+          animation: glyphPulse 2.2s ease-in-out infinite; background: transparent;
+          /* tactile : touch-action none pour que le navigateur ne prenne pas
+             l'appui pour un début de scroll, callout/sélection coupés pour
+             qu'il ne le prenne pas pour un appui long système */
+          touch-action: none; -webkit-touch-callout: none;
+          -webkit-user-select: none; user-select: none;
+          -webkit-tap-highlight-color: transparent;
+        }
         .glyph-btn:disabled { animation:none; box-shadow:none; }
         .glyph-btn:not(:disabled):hover {
           animation-duration: 1.1s;
@@ -578,6 +609,11 @@ export default function GlyphSlot() {
             width: "100%",
             height: "100%",
             display: "block",
+            /* hors du hit-test : sinon l'appui long sur le bouton, qui la
+               recouvre, ouvre le menu contextuel « enregistrer l'image »
+               de Chrome Android */
+            pointerEvents: "none",
+            userSelect: "none",
             /* coupe basse : la photo s'efface en fondu au lieu d'être recouverte
                par un aplat, sinon la trame de points disparaîtrait sur la bande */
             WebkitMaskImage: "linear-gradient(to bottom, #000 86%, transparent 99%)",
@@ -620,12 +656,15 @@ export default function GlyphSlot() {
 
         {/* bouton Glyph, calé sur le bouton de la photo */}
         <button
+          ref={btnRef}
           className={"glyph-btn" + (pressed ? " is-pressed" : "") + (hint ? " is-hint" : "")}
           aria-label="Bouton Glyph — appui long pour lancer"
           disabled={busy}
           onPointerDown={pressStart}
           onPointerUp={pressEnd}
           onPointerLeave={pressEnd}
+          onPointerCancel={pressCancel}
+          onContextMenu={(e) => e.preventDefault()}
           style={{
             position: "absolute",
             left: `${BT.x}%`,
