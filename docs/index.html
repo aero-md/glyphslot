@@ -1,33 +1,43 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GlyphSlot — préview interactive</title>
-<style>body { margin: 0; background: #0C0D10; }</style>
-</head>
-<body>
-<div id="root"></div>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script>
-/* Charge glyph-slot-preview.jsx depuis la branche main (source unique de
-   vérité), adapte les import/export ESM au React UMD, transpile avec Babel. */
-(async () => {
-  const SRC = "https://raw.githubusercontent.com/aero-md/glyphslot/main/glyph-slot-preview.jsx";
-  let code = await (await fetch(SRC)).text();
-  code = code
-    .replace(/import\s*\{([^}]*)\}\s*from\s*"react";?/, "const {$1} = React;")
-    .replace(/export\s+default\s+function\s+GlyphSlot/, "function GlyphSlot");
-  code += "\nReactDOM.createRoot(document.getElementById('root')).render(React.createElement(GlyphSlot));";
-  // runtime "classic" obligatoire : l'automatique (défaut Babel 8) injecte un
-  // import de react/jsx-runtime, impossible hors module ESM
-  new Function(Babel.transform(code, { presets: [["react", { runtime: "classic" }]] }).code)();
-})().catch((e) => {
-  document.getElementById("root").innerHTML =
-    '<p style="color:#E8E8E4;font-family:monospace;padding:24px">Erreur de chargement : ' + e + "</p>";
-});
-</script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GlyphSlot — la préview a déménagé</title>
+    <!-- La préview vit maintenant sur glyph.suns.red, compilée, avec celles des
+         autres Glyph Toys et un noyau commun — plus de JSX transpilé par Babel
+         dans le navigateur à chaque visite. GitHub Pages ne sait pas répondre
+         301 : on redirige côté client, et le lien reste cliquable sans JS. -->
+    <meta http-equiv="refresh" content="0; url=https://glyph.suns.red/glyphslot/" />
+    <link rel="canonical" href="https://glyph.suns.red/glyphslot/" />
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0c0d10;
+        color: #e8e8e4;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        text-align: center;
+        padding: 2rem;
+      }
+      a {
+        color: #e8e8e4;
+        text-underline-offset: 4px;
+      }
+      p {
+        max-width: 46ch;
+      }
+    </style>
+  </head>
+  <body>
+    <p>
+      La préview de GlyphSlot a déménagé sur
+      <a href="https://glyph.suns.red/glyphslot/">glyph.suns.red/glyphslot</a>, avec celles des
+      autres Glyph Toys.
+    </p>
+  </body>
 </html>
