@@ -20,8 +20,8 @@ partagés avec le toy — voir [SPECS.md](SPECS.md).
 
 | Fichier | Rôle |
 |---|---|
-| [`glyph-slot-preview.jsx`](glyph-slot-preview.jsx) | Source unique de vérité — composant React complet |
-| [`docs/index.html`](docs/index.html) | Page GitHub Pages : charge le `.jsx` depuis `main`, adapte l'ESM au React UMD, transpile via Babel standalone |
+| `glyph-slot-preview.jsx` | Source unique de vérité — composant React complet. **Supprimé** : le portage rend le prototype caduc, et le garder aurait laissé deux implémentations dont une morte. Récupérable dans l'historique. |
+| [`docs/index.html`](docs/index.html) | Chargeait le `.jsx` depuis `main` et le transpilait via Babel standalone. N'est plus qu'une redirection vers la préview du portail. |
 | [`docs/phone3-back.webp`](docs/phone3-back.webp) | Photo du dos, détourée et rognée (704 × 913, ~52 Ko) |
 
 Publication : GitHub Pages en mode *legacy*, source `main` + `/docs` → **le

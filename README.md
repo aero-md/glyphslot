@@ -8,10 +8,11 @@ Glyph Toy « machine à sous » pour la Glyph Matrix du Nothing Phone (3).
 Appui long sur le Glyph Button → spin de 5 s avec effet ressort, arrêts en
 cascade et effets de victoire (pulse ×3, chorégraphie jackpot 777).
 
-**[▶ Préview interactive](https://aero-md.github.io/glyphslot/)** — le
-prototype web ([glyph-slot-preview.jsx](glyph-slot-preview.jsx)) jouable dans
-le navigateur : mêmes constantes, même cinématique que le toy, rendu à
-l'échelle réelle sur une photo du dos du Phone (3).
+**[▶ Préview interactive](https://glyph.suns.red/glyphslot/)** — le toy jouable
+dans le navigateur : mêmes constantes, même cinématique, rendu à l'échelle
+réelle sur une photo du dos du Phone (3). Elle vit avec celles des autres Glyph
+Toys dans [glyph-portal](https://github.com/aero-md/GlyphPortal), sur un noyau
+commun.
 
 Specs détaillées : [SPECS.md](SPECS.md) · annexe : [SPECS-ANNEXE.md](SPECS-ANNEXE.md) ·
 préview : [SPECS-PREVIEW.md](SPECS-PREVIEW.md) · plan : [PLAN.md](PLAN.md).
