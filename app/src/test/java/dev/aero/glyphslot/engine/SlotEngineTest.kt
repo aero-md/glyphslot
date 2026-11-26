@@ -18,6 +18,35 @@ class SlotEngineTest {
     }
 
     @Test
+    fun `relance possible des l arret du dernier rouleau`() {
+        val e = SlotEngine(Random(5))
+        assertTrue(e.spin(0.0))
+        // le rouleau 3 tourne encore
+        assertFalse(e.spin(Reels.STOPS[2] - 0.05))
+        // arrêté, résultat pas encore annoncé (SETTLE) : la relance passe, et le
+        // tirage précédent est conclu d'abord — trois arrêts, un SpinFinished
+        assertTrue(e.spin(Reels.STOPS[2] + 0.05))
+        val events = e.drainEvents()
+        assertEquals(3, events.filterIsInstance<SlotEngine.Event.ReelStopped>().size)
+        assertEquals(1, events.filterIsInstance<SlotEngine.Event.SpinFinished>().size)
+        assertEquals(SlotEngine.State.SPINNING, e.update(Reels.STOPS[2] + 0.1).state)
+    }
+
+    @Test
+    fun `relance coupe les effets du jackpot`() {
+        val e = SlotEngine(Random(9))
+        e.spin(0.0, SlotEngine.ResultType.JACKPOT)
+        assertEquals(SlotEngine.State.RESULT, e.update(6.0).state)
+        assertTrue(e.spin(6.5))
+        // la nouvelle bande part des symboles du jackpot, sans saut
+        val start = e.update(6.5)
+        for (i in 0 until 3) assertEquals(Reels.targetOffset(i, 0), start.offsets[i], 1e-9)
+        val snap = e.update(6.6)
+        assertEquals(SlotEngine.State.SPINNING, snap.state)
+        assertEquals(null, snap.resultType)
+    }
+
+    @Test
     fun `jackpot force - sequence complete jusqu au retour IDLE`() {
         val e = SlotEngine(Random(7))
         e.spin(0.0, SlotEngine.ResultType.JACKPOT)

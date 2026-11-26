@@ -26,7 +26,9 @@
             </intent-filter>
         </activity>
 
-        <!-- Glyph Toy : appui long (« change ») = lancer le spin -->
+        <!-- Glyph Toy : la secousse lance (accéléromètre, aucune permission
+             requise) ; l'appui long (« change ») passe de la machine à sous à
+             la roulette et retour -->
         <service
             android:name=".toy.SlotToyService"
             android:exported="true">

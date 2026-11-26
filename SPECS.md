@@ -25,7 +25,7 @@
 - Symbole k aligné sur la payline ⇔ `offset ≡ -9·SLOT[reel][k] (mod 45)`.
 - Lignes hors payline : luminosité ×0,2 (symboles voisins visibles).
 
-## Plan de spin (pré-calculé à l'appui long)
+## Plan de spin (pré-calculé à la secousse)
 
 1. Tirage du résultat `[k1, k2, k3]` :
    - 5 % triple 7, 15 % triple autre symbole, sinon tirage sans triple.
@@ -62,11 +62,52 @@ SEVEN      CHERRY     BAR        DIAMOND    BELL
 ## Machine à états
 
 ```
-IDLE ──appui long──▶ SPINNING ──▶ R1_STOP ──▶ R2_STOP ──▶ R3_STOP ──▶ RESULT ──▶ IDLE
+IDLE ──secousse──▶ SPINNING ──▶ R1_STOP ──▶ R2_STOP ──▶ R3_STOP ──▶ RESULT ──▶ IDLE
 ```
 
-- `RESULT` : `lose` (~1 s), `win` (~2,8 s), `jackpot` (~4 s), puis retour IDLE
+- `RESULT` : `lose` (~1 s), `win` (~2,8 s), `jackpot` (~7,5 s), puis retour IDLE
   avec les symboles finaux affichés.
+- **Relance dès l'arrêt du dernier rouleau** (`t ≥ STOPS[2]`) : en `R3_STOP`
+  comme en `RESULT`, une secousse coupe les effets et repart. Relancé avant
+  l'annonce du résultat (fenêtre `SETTLE`), le tirage précédent est d'abord
+  conclu — chaque spin émet ses trois `ReelStopped` et son `SpinFinished`.
+
+## Roulette — le mode alternatif
+
+Appui long : la machine à sous laisse la place à une roulette européenne vue du
+dessus, et inversement. Moteur dans `engine/Roulette.kt` + `RouletteEngine.kt`,
+rendu dans `render/RouletteRenderer.kt` — port de la préview du portail
+(`glyph-portal/src/routes/glyphslot/lib/`), mêmes constantes, les deux se
+corrigent ensemble.
+
+| Élément | Rendu |
+|---|---|
+| Piste | contour du disque, lavis fixe (0,03) — la cuvette ne tourne pas |
+| Couronne | 37 cases entre `R − 3,9` et `R − 1,6`, ordre du cylindre européen, supersamplée 2×2 |
+| Case rouge / noire / zéro | 0,22 / 0,03 / 0,6 — le zéro est le repère qui fait voir le cylindre tourner |
+| Croisillon | 4 bras de 3,6 cellules à 0,18, moyeu à 0,45, solidaire du cylindre |
+| Bille | 1,0, traînée de 50 ms ; sur la piste elle suit le contour du disque |
+| Résultat | numéro en police 5×7, barre 11×4 dessous : **pleine = rouge, contour = noir**, rien pour le zéro |
+
+Rouge / noir n'est jamais écrit : la matrice est monochrome, plein = rouge,
+creux = noir, sur le cylindre comme sous le numéro.
+
+Chronologie d'un lancer (s) :
+
+| t | Événement |
+|---:|---|
+| 0 | secousse : bille lancée à 1,85 tr/s (antihoraire), cylindre à 0,42 tr/s (horaire) |
+| 3,3 | la bille quitte la piste et descend le cône |
+| 4,05 | premier rebond dans les cases |
+| `tLand` | posée — **1 à 5 rebonds tirés au hasard**, hauteur ≥ 1 cellule, durée 0,28·√h |
+| `tLand` + 0,6 | la case gagnante a clignoté ; le cylindre s'éteint (0,35 s), le numéro s'allume (0,35 s) |
+
+- Numéro **tiré à la secousse** (uniforme sur 37), trajectoire relative
+  bille/cylindre intégrée puis recalée pour tomber pile sur la case.
+- Relance permise **dès que la bille est posée**, comme la machine à sous.
+- Au repos le cylindre tourne doucement (0,05 tr/s), sans bille. Un résultat
+  reste affiché jusqu'à la secousse suivante.
+- Haptique : tick à chaque rebond, clic appuyé à la pose.
 
 ## Effets
 
@@ -87,19 +128,28 @@ IDLE ──appui long──▶ SPINNING ──▶ R1_STOP ──▶ R2_STOP ─�
 ## Architecture
 
 ```
-engine/   SlotEngine.kt, Reels.kt   — logique pure, testable JUnit, sans SDK
-render/   MatrixRenderer.kt, Sprites.kt, Effects.kt — IntArray(625)/frame
-toy/      SlotToyService.kt         — seul module dépendant du GlyphMatrixSDK
+engine/   SlotEngine.kt, Reels.kt,
+          Roulette.kt, RouletteEngine.kt,
+          Table.kt                  — logique pure, testable JUnit, sans SDK
+render/   MatrixRenderer.kt, Sprites.kt, Effects.kt,
+          RouletteRenderer.kt       — IntArray(625)/frame
+toy/      SlotToyService.kt, Shaker.kt — seul module dépendant du GlyphMatrixSDK
 MainActivity.kt                     — préview Compose 25×25 + réglages
 ```
 
-## Interaction Glyph Button
+## Interaction
 
 | Event | Action |
 |-------|--------|
+| Secousse du téléphone | Lancer le jeu affiché (ignorée tant qu'un rouleau tourne / que la bille roule) |
 | Short press | Système : cycle entre les toys |
-| Long press (« change ») | Lancer le spin (ignoré si spin en cours) |
-| `onUnbind` | Stop boucle + extinction matrice |
+| Long press (« change ») | Passer de la machine à sous à la roulette et retour (refusé pendant un tirage : double tick) |
+| `onUnbind` | Stop boucle + capteur + extinction matrice |
+
+La secousse : accéléromètre (réveillant si l'appareil en a un, aucun sur le
+Phone (3)), gravité soustraite par moyenne glissante, seuil 14 m/s², temps mort
+550 ms — mêmes réglages que le dé de Haloglyph. Le jeu choisi est retenu d'une
+session à l'autre (`SharedPreferences` « glyphslot »).
 
 ## Icône
 

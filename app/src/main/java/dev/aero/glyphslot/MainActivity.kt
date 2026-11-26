@@ -32,68 +32,128 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.aero.glyphslot.engine.Game
 import dev.aero.glyphslot.engine.Reels
+import dev.aero.glyphslot.engine.Roulette
+import dev.aero.glyphslot.engine.RouletteEngine
 import dev.aero.glyphslot.engine.SlotEngine
+import dev.aero.glyphslot.engine.Table
 import dev.aero.glyphslot.render.MatrixRenderer
+import dev.aero.glyphslot.render.RouletteRenderer
+import dev.aero.glyphslot.toy.Shaker
 import kotlinx.coroutines.delay
 
 /**
- * Préview Compose 25×25 : même moteur + même renderer que le toy,
- * pour itérer sans retourner le téléphone.
+ * Préview Compose 25×25 : mêmes moteurs + mêmes renderers que le toy,
+ * pour itérer sans retourner le téléphone. La secousse marche ici aussi.
  */
 class MainActivity : ComponentActivity() {
+
+    /** Branché par l'écran : la secousse lance le jeu affiché, comme sur le toy. */
+    internal var onShake: () -> Unit = {}
+    private var shaker: Shaker? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { PreviewScreen() }
+        shaker = Shaker(this) { onShake() }
+        setContent { PreviewScreen(this) }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        shaker?.start()
+    }
+
+    override fun onPause() {
+        shaker?.stop()
+        super.onPause()
     }
 }
 
-private const val STATUS_IDLE = "Appui long sur le bouton Glyph pour lancer"
+private const val STATUS_IDLE = "Secouer le téléphone pour lancer"
 
 @Composable
-private fun PreviewScreen() {
-    val engine = remember { SlotEngine() }
-    val renderer = remember { MatrixRenderer() }
+private fun PreviewScreen(activity: MainActivity) {
+    val table = remember { Table() }
+    val slotRenderer = remember { MatrixRenderer() }
+    val rouletteRenderer = remember { RouletteRenderer() }
     var frame by remember { mutableStateOf(IntArray(Reels.SIZE * Reels.SIZE)) }
     var status by remember { mutableStateOf(STATUS_IDLE) }
     var busy by remember { mutableStateOf(false) }
+    var game by remember { mutableStateOf(table.game) }
 
     fun now() = System.nanoTime() / 1e9
 
     LaunchedEffect(Unit) {
         while (true) {
-            val snap = engine.update(now())
-            engine.drainEvents().forEach { event ->
-                when (event) {
-                    is SlotEngine.Event.ReelStopped ->
-                        if (event.index < 2) status = "Rouleau ${event.index + 1} arrêté…"
+            val now = now()
+            frame = when (table.game) {
+                Game.SLOT -> {
+                    val snap = table.slot.update(now)
+                    table.slot.drainEvents().forEach { event ->
+                        when (event) {
+                            is SlotEngine.Event.ReelStopped ->
+                                if (event.index < 2) status = "Rouleau ${event.index + 1} arrêté…"
 
-                    is SlotEngine.Event.SpinFinished -> {
-                        renderer.onResult(event.result)
-                        status = when (event.result) {
-                            SlotEngine.ResultType.JACKPOT -> "JACKPOT 777 — gros effet de victoire"
-                            SlotEngine.ResultType.WIN -> "3 symboles identiques — effet de victoire"
-                            SlotEngine.ResultType.LOSE -> "Pas de combinaison. Relance !"
+                            is SlotEngine.Event.SpinFinished -> {
+                                slotRenderer.onResult(event.result)
+                                status = when (event.result) {
+                                    SlotEngine.ResultType.JACKPOT -> "JACKPOT 777"
+                                    SlotEngine.ResultType.WIN -> "Trois symboles identiques"
+                                    SlotEngine.ResultType.LOSE -> "Pas de combinaison. Relance !"
+                                }
+                            }
+
+                            SlotEngine.Event.ResultEnded -> Unit
                         }
                     }
+                    slotRenderer.render(snap).copyOf()
+                }
 
-                    SlotEngine.Event.ResultEnded -> {
-                        busy = false
-                        status = STATUS_IDLE
+                Game.ROULETTE -> {
+                    val view = table.roulette.update(now)
+                    table.roulette.drainEvents().forEach { event ->
+                        status = when (event) {
+                            is RouletteEngine.Event.Bounce -> "Rebond ${event.n}…"
+                            is RouletteEngine.Event.Landed -> {
+                                val color = when (event.color) {
+                                    Roulette.Color.RED -> "rouge"
+                                    Roulette.Color.BLACK -> "noir"
+                                    Roulette.Color.ZERO -> "zéro"
+                                }
+                                "${event.result} $color, après ${event.hops} rebond" +
+                                    if (event.hops > 1) "s" else ""
+                            }
+                        }
                     }
+                    rouletteRenderer.render(view).copyOf()
                 }
             }
-            frame = renderer.render(snap).copyOf()
+            busy = !table.ready(now)
             delay(33)
         }
     }
 
-    fun launch(force: SlotEngine.ResultType?) {
-        if (engine.spin(now(), force)) {
-            busy = true
-            status = "Lancement — les rouleaux défilent…"
+    fun launch() {
+        if (table.launch(now())) status = "Lancement…"
+    }
+
+    fun forceSlot(force: SlotEngine.ResultType) {
+        if (table.slot.spin(now(), force)) status = "Lancement…"
+    }
+
+    fun forceRoulette(force: Roulette.Color) {
+        if (table.roulette.launch(now(), force)) status = "Lancement…"
+    }
+
+    fun switchGame() {
+        if (table.switch(now())) {
+            game = table.game
+            status = STATUS_IDLE
         }
     }
+
+    activity.onShake = { launch() }
 
     Column(
         modifier = Modifier
@@ -104,7 +164,7 @@ private fun PreviewScreen() {
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "GLYPH SLOT",
+            text = if (game == Game.SLOT) "GLYPH SLOT" else "GLYPH SLOT · ROULETTE",
             color = Color(0xFFE8E8E4),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
@@ -125,9 +185,22 @@ private fun PreviewScreen() {
         Spacer(Modifier.height(20.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DemoButton("Tirage", enabled = !busy) { launch(null) }
-            DemoButton("Forcer ×3", enabled = !busy) { launch(SlotEngine.ResultType.WIN) }
-            DemoButton("Forcer 777", enabled = !busy) { launch(SlotEngine.ResultType.JACKPOT) }
+            DemoButton("Secouer", enabled = !busy) { launch() }
+            // l'appui long du toy : changer de jeu
+            DemoButton(if (game == Game.SLOT) "Roulette" else "Machine à sous", enabled = !busy) {
+                switchGame()
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (game == Game.SLOT) {
+                DemoButton("Forcer ×3", enabled = !busy) { forceSlot(SlotEngine.ResultType.WIN) }
+                DemoButton("Forcer 777", enabled = !busy) { forceSlot(SlotEngine.ResultType.JACKPOT) }
+            } else {
+                DemoButton("Rouge", enabled = !busy) { forceRoulette(Roulette.Color.RED) }
+                DemoButton("Noir", enabled = !busy) { forceRoulette(Roulette.Color.BLACK) }
+                DemoButton("Zéro", enabled = !busy) { forceRoulette(Roulette.Color.ZERO) }
+            }
         }
     }
 }

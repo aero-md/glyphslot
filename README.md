@@ -4,9 +4,16 @@
 
 # GlyphSlot
 
-Glyph Toy « machine à sous » pour la Glyph Matrix du Nothing Phone (3).
-Appui long sur le Glyph Button → spin de 5 s avec effet ressort, arrêts en
-cascade et effets de victoire (pulse ×3, chorégraphie jackpot 777).
+Glyph Toy « machine à sous » pour la Glyph Matrix du Nothing Phone (3), avec
+une roulette en mode alternatif.
+
+- **Secouer le téléphone** → spin de 5 s avec effet ressort, arrêts en cascade
+  et effets de victoire (pulse ×3, chorégraphie jackpot 777). On relance dès
+  que le dernier rouleau est arrêté.
+- **Appui long sur le Glyph Button** → la roulette : une roulette européenne
+  vue du dessus, lancée elle aussi d'une secousse. La bille rebondit une à cinq
+  fois, puis le numéro s'affiche avec sa couleur en dessous — barre pleine pour
+  le rouge, en contour pour le noir.
 
 **[▶ Préview interactive](https://glyph.suns.red/glyphslot/)** — le toy jouable
 dans le navigateur : mêmes constantes, même cinématique, rendu à l'échelle
@@ -49,8 +56,9 @@ préview : [SPECS-PREVIEW.md](SPECS-PREVIEW.md) · plan : [PLAN.md](PLAN.md).
    Si la matrice reste noire ou que le toy crashe :
    `adb logcat -b crash -d` pour la stack trace.
 4. Pour itérer sans retourner le téléphone : la préview Compose 25×25 utilise
-   exactement le même moteur et le même renderer que le toy (boutons Tirage /
-   Forcer ×3 / Forcer 777). L'icône launcher n'existe qu'en **debug** ; en
+   exactement les mêmes moteurs et les mêmes renderers que le toy (secousse ou
+   bouton Secouer, changement de jeu, forçage ×3 / 777 ou rouge / noir / zéro).
+   L'icône launcher n'existe qu'en **debug** ; en
    release l'app n'a pas de raccourci (le toy vit dans Glyph Interface).
    Lancement direct si besoin :
    `adb shell am start -n dev.aero.glyphslot/.MainActivity`
@@ -58,25 +66,28 @@ préview : [SPECS-PREVIEW.md](SPECS-PREVIEW.md) · plan : [PLAN.md](PLAN.md).
 ## Architecture
 
 ```
-engine/   SlotEngine.kt, Reels.kt        logique pure, testable JUnit, sans SDK
+engine/   SlotEngine.kt, Reels.kt,
+          Roulette.kt, RouletteEngine.kt,
+          Table.kt                       logique pure, testable JUnit, sans SDK
 render/   MatrixRenderer.kt, Sprites.kt,
-          Effects.kt                     IntArray(625) par frame, sans SDK
-toy/      SlotToyService.kt,
+          Effects.kt, RouletteRenderer.kt IntArray(625) par frame, sans SDK
+toy/      SlotToyService.kt, Shaker.kt,
           GlyphMatrixService.kt          seul module dépendant du GlyphMatrixSDK
 MainActivity.kt                          préview Compose 25×25
 ```
 
-Le temps est injecté dans `SlotEngine` (secondes monotones) : la machine à
-états et la cinématique des rouleaux se testent en JVM pure
-(`./gradlew test`).
+Le temps est injecté dans `SlotEngine` et `RouletteEngine` (secondes
+monotones) : les machines à états, la cinématique des rouleaux et celle de la
+bille se testent en JVM pure (`./gradlew test`).
 
 ## Interaction
 
 | Event | Action |
 |-------|--------|
+| Secousse | Lancer le jeu affiché (ignorée tant qu'un rouleau tourne ou que la bille roule) |
 | Appui court | Système : cycle entre les toys |
-| Appui long (« change ») | Lancer le spin (ignoré si spin en cours) |
-| `onUnbind` | Stop boucle + extinction matrice |
+| Appui long (« change ») | Machine à sous ⇄ roulette (refusé pendant un tirage) |
+| `onUnbind` | Stop boucle + capteur + extinction matrice |
 
 ## Release
 

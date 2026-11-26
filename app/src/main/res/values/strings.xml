@@ -2,5 +2,5 @@
 <resources>
     <string name="app_name">Glyph Slot</string>
     <string name="toy_name">Glyph Slot</string>
-    <string name="toy_summary">Machine à sous sur la Glyph Matrix — appui long pour lancer</string>
+    <string name="toy_summary">Machine à sous et roulette sur la Glyph Matrix. Secouer pour lancer, appui long pour changer de jeu</string>
 </resources>
