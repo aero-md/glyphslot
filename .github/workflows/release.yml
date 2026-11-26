@@ -2,9 +2,12 @@ name: Release
 
 # Push d'un tag annoté vX.Y.Z -> build + signature + release GitHub
 # avec l'APK en asset et le message du tag comme release note.
+# Lancé à la main (workflow_dispatch) : même build signé, sans release —
+# de quoi vérifier la chaîne sans avoir à tagguer.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,14 +16,19 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      # JDK 21 pour faire tourner Gradle ; le bytecode reste en 17
+      # (compileOptions / jvmTarget de app/build.gradle.kts). Pas 25 :
+      # Gradle 8.11 ne tourne pas dessus.
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
-      - uses: gradle/actions/setup-gradle@v4
+      # v5 et pas v6 : la v6 soumet son cache à des conditions d'utilisation
+      # propriétaires de Gradle. La v5 tourne déjà sur Node 24.
+      - uses: gradle/actions/setup-gradle@v5
 
       # Secrets requis : KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
       - name: Keystore de signature
@@ -38,6 +46,7 @@ jobs:
         run: ./gradlew test assembleRelease
 
       - name: Créer la release GitHub
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
