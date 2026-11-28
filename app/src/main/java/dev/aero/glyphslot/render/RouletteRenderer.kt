@@ -9,16 +9,17 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.hypot
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
  * La roulette vue du dessus : la piste sur le contour, la couronne des 37 cases,
- * le croisillon au centre. La bille est lancée sur la piste en sens inverse,
+ * le moyeu au centre. La bille est lancée sur la piste en sens inverse,
  * décroche, rebondit dans les cases et se pose ; la case gagnante clignote, le
  * cylindre s'éteint et le numéro s'allume, avec sa couleur dessous.
+ * [Roulette.HOLD] secondes plus tard, le numéro s'éteint et le cylindre revient
+ * tourner au ralenti.
  *
  * **Rouge / noir n'est jamais écrit** : la matrice est monochrome. Rouge = plein,
  * noir = creux — une case rouge allumée, une case noire presque éteinte ; sous le
@@ -36,8 +37,10 @@ class RouletteRenderer {
     private val radius = Reels.RADIUS
 
     private val g = FloatArray(size * size)
-    private val spokes = FloatArray(size * size)
     private val out = IntArray(size * size)
+
+    /** Le moyeu, posé une fois pour toutes : fixe, il ne change pas quand le cylindre tourne. */
+    private val hub = FloatArray(size * size)
 
     /** Rayon et angle de chaque sous-échantillon (quatre par cellule). */
     private val sr = DoubleArray(size * size * 4)
@@ -66,6 +69,15 @@ class RouletteRenderer {
             !solid(x - 1, y) || !solid(x + 1, y) || !solid(x, y - 1) || !solid(x, y + 1)
         }.toIntArray()
         edgeAngle = DoubleArray(edge.size) { k -> angleOf(edge[k]) }
+
+        val hy = (cy - (HUB_SPRITE.size - 1) / 2.0).roundToInt()
+        val hx = (cx - (HUB_SPRITE[0].length - 1) / 2.0).roundToInt()
+        for (r in HUB_SPRITE.indices) for (c in HUB_SPRITE[r].indices) {
+            when (HUB_SPRITE[r][c]) {
+                'C' -> hub[(hy + r) * size + hx + c] = HUB_CORE
+                'R' -> hub[(hy + r) * size + hx + c] = HUB_RING
+            }
+        }
     }
 
     fun render(view: RouletteEngine.View): IntArray {
@@ -74,6 +86,7 @@ class RouletteRenderer {
             is RouletteEngine.View.Idle -> wheel(view.w, -1)
             is RouletteEngine.View.Result -> result(view.shown.result, view.shown.color, 1f)
             is RouletteEngine.View.Spinning -> spin(view.spin, view.t, view.from)
+            is RouletteEngine.View.Returning -> back(view.shown, view.w, view.t)
         }
         for (i in out.indices) {
             out[i] = if (Disc.inside[i]) (min(g[i], 1f) * 255).roundToInt() else 0
@@ -107,7 +120,21 @@ class RouletteRenderer {
         result(s.result, s.color, ease((t - reveal0) / Roulette.REVEAL))
     }
 
-    /** Piste, couronne des cases et croisillon. `win` : case allumée, ou −1. */
+    /**
+     * Le retour au repos : le numéro s'éteint, puis le cylindre revient — le
+     * creux au noir de la révélation, à l'envers, sur les mêmes durées.
+     */
+    private fun back(r: RouletteEngine.Shown, w: Double, t: Double) {
+        if (t < Roulette.DIP) {
+            result(r.result, r.color, 1f - ease(t / Roulette.DIP))
+            return
+        }
+        wheel(w, -1)
+        val f = ease((t - Roulette.DIP) / Roulette.REVEAL)
+        if (f < 1f) for (i in Disc.cells) g[i] *= f
+    }
+
+    /** Piste, couronne des cases et moyeu. `win` : case allumée, ou −1. */
     private fun wheel(w: Double, win: Int) {
         val rIn = radius - POCKET_IN
         val rOut = radius - POCKET_OUT
@@ -131,14 +158,8 @@ class RouletteRenderer {
             if (v > g[i]) g[i] = v
         }
 
-        // le croisillon, solidaire du cylindre : c'est lui qui montre qu'il tourne
-        spokes.fill(0f)
-        for (m in 0 until 4) {
-            val a = w + m * PI / 2
-            line(cx, cy, cx + SPOKE_LEN * sin(a), cy - SPOKE_LEN * cos(a), SPOKE)
-        }
-        set(spokes, cx.roundToInt(), cy.roundToInt(), HUB)
-        for (i in Disc.cells) if (spokes[i] > g[i]) g[i] = spokes[i]
+        // le moyeu, posé à l'init
+        for (i in Disc.cells) if (hub[i] > g[i]) g[i] = hub[i]
     }
 
     /**
@@ -216,36 +237,13 @@ class RouletteRenderer {
         return best
     }
 
-    /** Segment : cœur d'une cellule, épaule en demi-teinte du côté où il passe entre deux. */
-    private fun line(x0: Double, y0: Double, x1: Double, y1: Double, b: Float) {
-        val dx = x1 - x0
-        val dy = y1 - y0
-        val n = max(1, (max(abs(dx), abs(dy)) * 2).roundToInt())
-        val flat = abs(dx) >= abs(dy)
-        for (k in 0..n) {
-            val t = k.toDouble() / n
-            val x = x0 + dx * t
-            val y = y0 + dy * t
-            val xi = x.roundToInt()
-            val yi = y.roundToInt()
-            set(spokes, xi, yi, b)
-            val f = if (flat) y - yi else x - xi
-            val s = 2 * abs(f) - SHOULDER
-            if (s > 0) {
-                val step = if (f > 0) 1 else -1
-                if (flat) set(spokes, xi, yi + step, (b * s).toFloat())
-                else set(spokes, xi + step, yi, (b * s).toFloat())
-            }
-        }
+    private fun put(x: Double, y: Double, b: Float) {
+        val xi = x.roundToInt()
+        val yi = y.roundToInt()
+        if (xi < 0 || yi < 0 || xi >= size || yi >= size) return
+        val i = yi * size + xi
+        if (Disc.inside[i] && b > g[i]) g[i] = b
     }
-
-    private fun set(buf: FloatArray, x: Int, y: Int, b: Float) {
-        if (x < 0 || y < 0 || x >= size || y >= size) return
-        val i = y * size + x
-        if (Disc.inside[i] && b > buf[i]) buf[i] = b
-    }
-
-    private fun put(x: Double, y: Double, b: Float) = set(g, x.roundToInt(), y.roundToInt(), b)
 
     private fun ease(x: Double): Float {
         val u = x.coerceIn(0.0, 1.0)
@@ -260,19 +258,37 @@ class RouletteRenderer {
         /** Le zéro, plus clair que tout : c'est le repère qui fait voir le cylindre tourner. */
         const val ZERO = 0.6f
         const val WIN = 0.75f
-        const val HUB = 0.45f
-        const val SPOKE = 0.18f
+        /** Le moyeu : le point central est l'axe, le plus clair ; le cercle une carcasse. */
+        const val HUB_CORE = 0.45f
+        const val HUB_RING = 0.22f
         const val TRACK = 0.03f
 
         /** Couronne des cases, en cellules depuis le bord nominal. */
         const val POCKET_IN = 3.9
         const val POCKET_OUT = 1.6
-        const val SPOKE_LEN = 3.6
 
         const val TRAIL = 0.05
         const val TRAIL_DT = 0.004
         const val BLINK_HALF = 0.14
-        const val SHOULDER = 0.5
+
+        /**
+         * Le moyeu, dessiné pixel par pixel et non tramé : des LEDs pleines ou
+         * éteintes, sans anticrénelage. `C` le point central — le plus petit
+         * disque de la grille, une croix de cinq —, `R` le cercle, de rayon 4 : à
+         * 3, la trame n'en fait qu'un octogone, qui se lit carré. Fixe : c'est le
+         * zéro, plus clair que le reste de la couronne, qui montre la rotation.
+         */
+        val HUB_SPRITE = arrayOf(
+            "...RRR...",
+            ".RR...RR.",
+            ".R.....R.",
+            "R...C...R",
+            "R..CCC..R",
+            "R...C...R",
+            ".R.....R.",
+            ".RR...RR.",
+            "...RRR...",
+        )
 
         /** Sous-échantillons, en paires (dx, dy). */
         val SUB = doubleArrayOf(-0.25, -0.25, 0.25, -0.25, -0.25, 0.25, 0.25, 0.25)

@@ -8,10 +8,13 @@ import kotlin.random.Random
  *
  * ```
  * REPOS ──secousse──▶ LANCER ──(bille posée)──▶ RÉSULTAT ──secousse──▶ LANCER …
+ *   ▲                                              │
+ *   └──────────────(HOLD = 8 s, puis RETOUR)───────┘
  * ```
  *
  * Au repos le cylindre tourne doucement, sans bille. Un résultat reste affiché
- * jusqu'à la secousse suivante.
+ * [Roulette.HOLD] secondes, puis le numéro s'éteint et le cylindre revient
+ * ([View.Returning]) — sauf secousse avant.
  *
  * **On relance dès que la bille est posée**, sans attendre que le numéro soit
  * affiché — même règle que la machine à sous, qui relance dès l'arrêt du
@@ -28,6 +31,13 @@ class RouletteEngine(private val random: Random = Random.Default) {
         data class Idle(val w: Double) : View
         data class Result(val shown: Shown) : View
         class Spinning(val spin: Roulette.Spin, val t: Double, val from: Shown?) : View
+
+        /**
+         * Le retour au repos, une fois le résultat resté [Roulette.HOLD] : `t`
+         * part de 0 et court jusqu'à `DIP + REVEAL` — le numéro s'éteint, puis
+         * le cylindre revient en phase `w`.
+         */
+        data class Returning(val shown: Shown, val w: Double, val t: Double) : View
     }
 
     sealed interface Event {
@@ -41,6 +51,8 @@ class RouletteEngine(private val random: Random = Random.Default) {
     private var spin: Roulette.Spin? = null
     private var from: Shown? = null
     private var shown: Shown? = null
+    /** Instant où le résultat a fini de s'allumer : c'est de là que court [Roulette.HOLD]. */
+    private var shownAt = 0.0
     private var t0 = 0.0
     private var wIdle = 0.0
     private var lastNow = Double.NaN
@@ -67,7 +79,10 @@ class RouletteEngine(private val random: Random = Random.Default) {
 
         var w0 = wIdle
         var fromShown: Shown? = shown
-        spin?.let { s ->
+        var lead = if (fromShown != null) Roulette.PRE else 0.0
+        val s = spin
+        val r = shown
+        if (s != null) {
             // Relancé pendant la révélation : si le cylindre est encore à
             // l'écran, il continue d'où il en est ; sinon c'est le numéro qui
             // s'éteint avant qu'il revienne.
@@ -75,8 +90,22 @@ class RouletteEngine(private val random: Random = Random.Default) {
             if (t < s.tLand + Roulette.BLINK + Roulette.DIP) {
                 w0 = Roulette.wheelAngle(s, t)
                 fromShown = null
+                lead = 0.0
             } else {
                 fromShown = Shown(s.result, s.color)
+                lead = Roulette.PRE
+            }
+        } else if (r != null) {
+            // Relancé pendant le retour au repos : numéro à demi éteint, son
+            // fondu reprend là où il en est — `ease` étant symétrique, avancer
+            // l'origine de PRE · (1 − tb / DIP) retombe exactement sur la
+            // luminosité affichée ; cylindre déjà revenu, il continue de tourner.
+            val tb = now - shownAt - Roulette.HOLD
+            if (tb >= Roulette.DIP) {
+                fromShown = null
+                lead = 0.0
+            } else if (tb > 0) {
+                lead = Roulette.PRE * (1 - tb / Roulette.DIP)
             }
         }
 
@@ -86,19 +115,22 @@ class RouletteEngine(private val random: Random = Random.Default) {
         shown = null
         bounces = 0
         landed = false
-        t0 = now + if (fromShown != null) Roulette.PRE else 0.0
+        t0 = now + lead
         return true
     }
 
     /**
      * Pose la table au repos — ce qu'il faut avant de changer de jeu. Un lancer
-     * dont la bille est posée est conclu : son numéro reste affiché.
+     * dont la bille est posée est conclu : son numéro s'affiche, et [Roulette.HOLD]
+     * court à partir de maintenant.
      */
     fun rest(now: Double) {
         update(now)
         val s = spin ?: return
         if (now - t0 >= s.tLand) {
+            wIdle = Roulette.wheelAngle(s, now - t0)
             shown = Shown(s.result, s.color)
+            shownAt = now
             spin = null
             from = null
         }
@@ -120,19 +152,24 @@ class RouletteEngine(private val random: Random = Random.Default) {
                 landed = true
                 events += Event.Landed(s.result, s.color, s.hops.size)
             }
-            if (t >= s.tShown) {
-                val r = Shown(s.result, s.color)
-                shown = r
-                spin = null
-                from = null
-                return View.Result(r)
-            }
-            return View.Spinning(s, t, from)
+            if (t < s.tShown) return View.Spinning(s, t, from)
+
+            shown = Shown(s.result, s.color)
+            shownAt = t0 + s.tShown
+            wIdle = Roulette.wheelAngle(s, s.tShown)
+            spin = null
+            from = null
         }
 
-        shown?.let { return View.Result(it) }
-        // au repos le cylindre tourne doucement — une table ouverte, pas éteinte
+        // le cylindre tourne aussi derrière le numéro : il revient où il en est
         wIdle += Roulette.W_IDLE * dt
+        shown?.let { r ->
+            val tb = now - shownAt - Roulette.HOLD
+            if (tb < 0) return View.Result(r)
+            if (tb < Roulette.DIP + Roulette.REVEAL) return View.Returning(r, wIdle, tb)
+            shown = null
+        }
+        // au repos le cylindre tourne doucement — une table ouverte, pas éteinte
         return View.Idle(wIdle)
     }
 

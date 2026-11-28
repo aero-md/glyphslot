@@ -78,6 +78,14 @@ object Roulette {
     /** Fondu de sortie du résultat quand un lancer part d'un résultat affiché. */
     const val PRE = 0.25
 
+    /**
+     * Le numéro reste affiché tant de secondes, puis la table se rouvre : il
+     * s'éteint et le cylindre revient tourner au ralenti — sur [DIP] puis
+     * [REVEAL], la révélation à l'envers. Un résultat qui ne part jamais laisse
+     * un toy figé sur un chiffre ; la roulette au repos, elle, invite à relancer.
+     */
+    const val HOLD = 8.0
+
     /* --- rebonds -------------------------------------------------------- */
 
     data class Hop(val d: Double, val h: Double)

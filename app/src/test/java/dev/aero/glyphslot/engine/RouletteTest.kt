@@ -86,8 +86,80 @@ class RouletteTest {
         val landed = events.filterIsInstance<RouletteEngine.Event.Landed>()
         assertEquals(1, landed.size)
         assertEquals(s.result, landed[0].result)
-        // lancer terminé : le numéro reste affiché
+        // lancer terminé : le numéro reste affiché…
         assertTrue(e.update(t + 5) is RouletteEngine.View.Result)
+    }
+
+    @Test
+    fun `le numero reste HOLD secondes, puis la table revient au repos`() {
+        val e = RouletteEngine(Random(6))
+        e.launch(0.0)
+        val s = e.current!!
+        var t = 0.0
+        while (t < s.tShown) {
+            e.update(t)
+            t += 1.0 / 30
+        }
+        val shownAt = s.tShown
+        assertTrue(e.update(shownAt + Roulette.HOLD - 0.05) is RouletteEngine.View.Result)
+        // le numéro s'éteint, puis le cylindre revient…
+        val back = e.update(shownAt + Roulette.HOLD + 0.1)
+        assertTrue(back is RouletteEngine.View.Returning)
+        assertEquals(0.1, (back as RouletteEngine.View.Returning).t, 1e-9)
+        assertTrue(e.update(shownAt + Roulette.HOLD + Roulette.DIP + 0.1) is RouletteEngine.View.Returning)
+        // …et la table est ouverte : le cylindre tourne au ralenti
+        val idle = e.update(shownAt + Roulette.HOLD + Roulette.DIP + Roulette.REVEAL + 0.01)
+        assertTrue(idle is RouletteEngine.View.Idle)
+        val w = (idle as RouletteEngine.View.Idle).w
+        val later = e.update(shownAt + Roulette.HOLD + Roulette.DIP + Roulette.REVEAL + 0.06)
+        assertEquals(w + Roulette.W_IDLE * 0.05, (later as RouletteEngine.View.Idle).w, 1e-9)
+    }
+
+    @Test
+    fun `relance pendant le retour - le fondu du numero reprend ou il en est`() {
+        val e = RouletteEngine(Random(6))
+        e.launch(0.0)
+        val s = e.current!!
+        e.update(s.tShown)
+        // numéro au tiers de son extinction : le lancer part après PRE · (1 − 1/3)
+        val tb = Roulette.DIP / 3
+        val now = s.tShown + Roulette.HOLD + tb
+        assertTrue(e.launch(now))
+        val v = e.update(now) as RouletteEngine.View.Spinning
+        assertEquals(-Roulette.PRE * (1 - tb / Roulette.DIP), v.t, 1e-9)
+        assertTrue(v.from != null)
+
+        // cylindre déjà revenu : il continue, sans fondu depuis un numéro
+        val e2 = RouletteEngine(Random(6))
+        e2.launch(0.0)
+        val s2 = e2.current!!
+        e2.update(s2.tShown)
+        val now2 = s2.tShown + Roulette.HOLD + Roulette.DIP + 0.1
+        assertTrue(e2.launch(now2))
+        val v2 = e2.update(now2) as RouletteEngine.View.Spinning
+        assertEquals(0.0, v2.t, 1e-9)
+        assertTrue(v2.from == null)
+    }
+
+    @Test
+    fun `moyeu - point et cercle en LEDs pleines, sans demi-teintes`() {
+        val r = RouletteRenderer()
+        // au repos, sans bille : dans les 11 × 11 du centre, la couronne des
+        // cases ne commence pas encore — tout ce qui s'y allume est le moyeu
+        val px = r.render(RouletteEngine.View.Idle(0.0))
+        val c = Reels.CENTER
+        val levels = mutableSetOf<Int>()
+        var lit = 0
+        for (y in c - 5..c + 5) for (x in c - 5..c + 5) {
+            val v = px[y * Reels.SIZE + x]
+            if (v > 0) {
+                lit++
+                levels += v
+            }
+        }
+        // 5 LEDs pour le point, 24 pour le cercle — et deux niveaux, rien entre
+        assertEquals(29, lit)
+        assertEquals(2, levels.size)
     }
 
     @Test

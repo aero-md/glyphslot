@@ -85,7 +85,7 @@ corrigent ensemble.
 | Piste | contour du disque, lavis fixe (0,03) — la cuvette ne tourne pas |
 | Couronne | 37 cases entre `R − 3,9` et `R − 1,6`, ordre du cylindre européen, supersamplée 2×2 |
 | Case rouge / noire / zéro | 0,22 / 0,03 / 0,6 — le zéro est le repère qui fait voir le cylindre tourner |
-| Croisillon | 4 bras de 3,6 cellules à 0,18, moyeu à 0,45, solidaire du cylindre |
+| Moyeu | fixe, en LEDs pleines (sans anticrénelage) : point central en croix de 5 à 0,45, cercle de rayon 4 à 0,22 |
 | Bille | 1,0, traînée de 50 ms ; sur la piste elle suit le contour du disque |
 | Résultat | numéro en police 5×7, barre 11×4 dessous : **pleine = rouge, contour = noir**, rien pour le zéro |
 
@@ -101,12 +101,15 @@ Chronologie d'un lancer (s) :
 | 4,05 | premier rebond dans les cases |
 | `tLand` | posée — **1 à 5 rebonds tirés au hasard**, hauteur ≥ 1 cellule, durée 0,28·√h |
 | `tLand` + 0,6 | la case gagnante a clignoté ; le cylindre s'éteint (0,35 s), le numéro s'allume (0,35 s) |
+| + 8 | le numéro s'éteint (0,35 s), le cylindre revient tourner au ralenti (0,35 s) |
 
 - Numéro **tiré à la secousse** (uniforme sur 37), trajectoire relative
   bille/cylindre intégrée puis recalée pour tomber pile sur la case.
-- Relance permise **dès que la bille est posée**, comme la machine à sous.
+- Relance permise **dès que la bille est posée**, comme la machine à sous —
+  y compris pendant le retour au repos, dont le fondu reprend où il en est.
 - Au repos le cylindre tourne doucement (0,05 tr/s), sans bille. Un résultat
-  reste affiché jusqu'à la secousse suivante.
+  reste affiché **8 s** (`Roulette.HOLD`), puis la table se rouvre ; le
+  cylindre a continué de tourner derrière le numéro.
 - Haptique : tick à chaque rebond, clic appuyé à la pose.
 
 ## Effets
